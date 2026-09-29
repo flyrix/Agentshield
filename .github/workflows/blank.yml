@@ -15,8 +15,12 @@ jobs:
         with:
           gradle-version: 8.9
       - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon
+        run: |
+          DIR=$(dirname "$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)")
+          echo "Projet trouvé dans : $DIR"
+          cd "$DIR"
+          gradle :app:assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: AgentShield-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: "**/build/outputs/apk/debug/*.apk"
