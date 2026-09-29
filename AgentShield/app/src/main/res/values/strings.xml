@@ -1,0 +1,3 @@
+<resources>
+    <string name="a11y_desc">Lit uniquement l\'écran de Wave pour vous rappeler le montant et le destinataire avant un transfert. Ne lit jamais le code PIN.</string>
+</resources>

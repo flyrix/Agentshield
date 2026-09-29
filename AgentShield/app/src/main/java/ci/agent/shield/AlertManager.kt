@@ -1,5 +1,6 @@
 package ci.agent.shield
 
+import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -8,6 +9,7 @@ import android.media.AudioManager
 import android.media.RingtoneManager
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 
 object AlertManager {
@@ -21,7 +23,14 @@ object AlertManager {
                 .setContentTitle("⚠ ${e.reason}").setContentText(e.text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(e.text))
                 .setPriority(NotificationCompat.PRIORITY_MAX).setCategory(NotificationCompat.CATEGORY_ALARM).build())
-        siren(c)
+        if (e.risk == Risk.CRITICAL || !inUse(c)) siren(c)
+    }
+
+    /** true si l'écran est allumé ET déverrouillé (l'utilisateur est en train d'utiliser le téléphone). */
+    private fun inUse(c: Context): Boolean {
+        val pm = c.getSystemService(PowerManager::class.java)
+        val km = c.getSystemService(KeyguardManager::class.java)
+        return pm.isInteractive && !km.isKeyguardLocked
     }
 
     /** Sirène ~10 s sur le flux ALARME, volume au maximum. */
