@@ -75,46 +75,57 @@ class MainActivity : ComponentActivity() {
                 }
             })
 
-        Column(Modifier.fillMaxSize().padding(16.dp).statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Agent Shield", style = MaterialTheme.typography.headlineMedium)
-            Text(if (listenerOn) "✅ Surveillance des notifications active" else "❌ Accès aux notifications désactivé")
-            if (!listenerOn) Button(onClick = {
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            }) { Text("Activer l'accès aux notifications") }
-            Text(if (a11yOn) "✅ Vérification des transferts Wave active" else "❌ Vérification des transferts désactivée")
-            if (!a11yOn) Button(onClick = {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }) { Text("Activer la vérification des transferts") }
-            Button(onClick = { showApps = true }) { Text("Choisir les applications surveillées (${monitored.size})") }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = tts, onCheckedChange = { tts = it; Prefs.setTts(ctx, it) })
-                Spacer(Modifier.width(8.dp)); Text("Lecture vocale des messages importants")
+        LazyColumn(Modifier.fillMaxSize().padding(16.dp).statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item { Text("Agent Shield", style = MaterialTheme.typography.headlineMedium) }
+            item { Text(if (listenerOn) "✅ Surveillance des notifications active" else "❌ Accès aux notifications désactivé") }
+            if (!listenerOn) item {
+                Button(onClick = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) {
+                    Text("Activer l'accès aux notifications")
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = diag, onCheckedChange = { diag = it; Prefs.setDiag(ctx, it) })
-                Spacer(Modifier.width(8.dp)); Text("Mode diagnostic (texte des écrans Wave)")
+            item { Text(if (a11yOn) "✅ Vérification des transferts Wave active" else "❌ Vérification des transferts désactivée") }
+            if (!a11yOn) item {
+                Button(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
+                    Text("Activer la vérification des transferts")
+                }
             }
-            OutlinedTextField(value = vip, onValueChange = { vip = it; Prefs.setVipRaw(ctx, it) },
-                label = { Text("Expéditeurs prioritaires (séparés par des virgules)") },
-                modifier = Modifier.fillMaxWidth())
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        AlertManager.fire(ctx, WaveRuleEngine.analyze("Test : retrait de 10 000 F"))
-                    }, 5000)
-                }) { Text("Test alerte (5 s)") }
-                OutlinedButton(onClick = {
-                    SpeechManager.speak(ctx, TransferParser.message("5000", "Paul Kouassi", "0700000000"))
-                }) { Text("Test voix") }
+            item { Button(onClick = { showApps = true }) { Text("Choisir les applications surveillées (${monitored.size})") } }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = tts, onCheckedChange = { tts = it; Prefs.setTts(ctx, it) })
+                    Spacer(Modifier.width(8.dp)); Text("Lecture vocale des messages importants")
+                }
             }
-            Text("Derniers événements (chiffrés localement)", style = MaterialTheme.typography.titleMedium)
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(events) { e ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("${fmt.format(Date(e.ts))} · ${e.source} · ${e.risk}", style = MaterialTheme.typography.labelMedium)
-                            Text(e.text)
-                        }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = diag, onCheckedChange = { diag = it; Prefs.setDiag(ctx, it) })
+                    Spacer(Modifier.width(8.dp)); Text("Mode diagnostic (texte des écrans Wave)")
+                }
+            }
+            item {
+                OutlinedTextField(value = vip, onValueChange = { vip = it; Prefs.setVipRaw(ctx, it) },
+                    label = { Text("Expéditeurs prioritaires (séparés par des virgules)") },
+                    modifier = Modifier.fillMaxWidth())
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            AlertManager.fire(ctx, WaveRuleEngine.analyze("Test : retrait de 10 000 F"))
+                        }, 5000)
+                    }) { Text("Test alerte (5 s)") }
+                    OutlinedButton(onClick = {
+                        SpeechManager.speak(ctx, TransferParser.message("5000", "Paul Kouassi", "0700000000"))
+                    }) { Text("Test voix") }
+                }
+            }
+            item { Text("Derniers événements (chiffrés localement)", style = MaterialTheme.typography.titleMedium) }
+            if (events.isEmpty()) item { Text("Aucun événement enregistré pour l'instant.") }
+            items(events) { e ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("${fmt.format(Date(e.ts))} · ${e.source} · ${e.risk}", style = MaterialTheme.typography.labelMedium)
+                        Text(e.text)
                     }
                 }
             }

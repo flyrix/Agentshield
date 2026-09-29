@@ -54,6 +54,10 @@ class WaveScreenService : AccessibilityService() {
     }
 
     private fun warn(msg: String) {
+        scope.launch {
+            AppDb.get(this@WaveScreenService).dao().insert(
+                EventEntity(ts = System.currentTimeMillis(), source = "Transfert", text = msg, risk = "VERIF"))
+        }
         SpeechManager.speak(this, msg)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("confirm", "Vérification des transferts", NotificationManager.IMPORTANCE_HIGH))
@@ -63,7 +67,6 @@ class WaveScreenService : AccessibilityService() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(msg))
             .setPriority(NotificationCompat.PRIORITY_MAX).build())
     }
-
     /** Champs éditables : « libellé = valeur » quand Wave expose le libellé (hint) du champ. */
     private fun collect(n: AccessibilityNodeInfo?, out: MutableList<String>, depth: Int = 0) {
         if (n == null || depth > 25) return
