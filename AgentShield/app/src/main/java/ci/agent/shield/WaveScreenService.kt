@@ -68,14 +68,16 @@ class WaveScreenService : AccessibilityService() {
             .setPriority(NotificationCompat.PRIORITY_MAX).build())
     }
     /** Champs éditables : « libellé = valeur » quand Wave expose le libellé (hint) du champ. */
+        /** Champs éditables : « libellé = valeur » ; un champ vide expose son libellé seul. */
     private fun collect(n: AccessibilityNodeInfo?, out: MutableList<String>, depth: Int = 0) {
         if (n == null || depth > 25) return
         if (!n.isPassword) {
-            val t = n.text?.toString()
-            val hint = n.hintText?.toString()
+            val t = n.text?.toString()?.replace(Regex("\\s+"), " ")?.trim()
+            val hint = n.hintText?.toString()?.trim()
             if (!t.isNullOrBlank()) {
                 if (n.isEditable && !hint.isNullOrBlank() && !t.equals(hint, true)) out.add("$hint = $t") else out.add(t)
-            } else n.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
+            } else if (n.isEditable && !hint.isNullOrBlank()) out.add(hint)
+            else n.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
         }
         for (i in 0 until n.childCount) collect(n.getChild(i), out, depth + 1)
     }
