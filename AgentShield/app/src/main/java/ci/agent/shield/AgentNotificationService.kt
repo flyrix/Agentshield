@@ -12,18 +12,32 @@ class AgentNotificationService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName
         if (pkg !in Config.WAVE_PACKAGES && pkg !in Config.GMAIL_PACKAGES) return
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
         val x = sbn.notification.extras
-        val text = listOfNotNull(x.getCharSequence(Notification.EXTRA_TITLE), x.getCharSequence(Notification.EXTRA_TEXT))
-            .joinToString(" ").trim()
+        val title = x.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val body = x.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+        val text = "$title $body".trim()
         if (text.isEmpty() || isDuplicate(sbn.key, text)) return
 
         if (pkg in Config.WAVE_PACKAGES) {
             val e = WaveRuleEngine.analyze(text)
-            scope.launch { AppDb.get(this@AgentNotificationService).dao()
-                .insert(EventEntity(ts = System.currentTimeMillis(), source = "Wave", text = text, risk = e.risk.name)) }
+            log("Wave", text, e.risk.name)
             if (e.risk >= Risk.HIGH) AlertManager.fire(this, e)
+        } else {
+            // Gmail : titre = expéditeur, texte = objet
+            val v = MailClassifier.classify(title, body, Prefs.vip(this))
+            if (v.urgency == Urgency.IMPORTANT) {
+                log("Gmail", "$title — $body", "IMPORTANT")
+                if (Prefs.ttsEnabled(this)) SpeechManager.speak(this, "Mail important de $title. $body")
+            }
         }
-        // Phase 2 : Gmail -> classification + lecture TTS
+    }
+
+    private fun log(source: String, text: String, risk: String) {
+        scope.launch {
+            AppDb.get(this@AgentNotificationService).dao()
+                .insert(EventEntity(ts = System.currentTimeMillis(), source = source, text = text, risk = risk))
+        }
     }
 
     private fun isDuplicate(key: String, text: String): Boolean {
