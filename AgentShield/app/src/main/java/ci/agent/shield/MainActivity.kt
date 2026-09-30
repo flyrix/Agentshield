@@ -2,11 +2,13 @@ package ci.agent.shield
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,6 +25,13 @@ import java.util.*
 class MainActivity : ComponentActivity() {
     private var listenerOn by mutableStateOf(false)
     private var a11yOn by mutableStateOf(false)
+    private var modelOn by mutableStateOf(false)
+    private var busy by mutableStateOf(false)
+    private var llmStatus by mutableStateOf("")
+
+    private val pickModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importModel(uri)
+    }
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
@@ -35,6 +44,31 @@ class MainActivity : ComponentActivity() {
         listenerOn = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         a11yOn = (Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "")
             .contains("ci.agent.shield.WaveScreenService")
+        modelOn = LocalLlm.isInstalled(this)
+    }
+
+    private fun importModel(uri: Uri) {
+        busy = true; llmStatus = "Copie du modèle en cours… (quelques minutes, reste dans l'app)"
+        Thread {
+            llmStatus = try {
+                val mb = LocalLlm.importModel(this, uri) / 1_000_000
+                "✅ Modèle importé ($mb Mo). Tu peux supprimer le fichier d'origine pour libérer de la place."
+            } catch (e: Exception) { "❌ Échec de l'import : ${e.message ?: e.javaClass.simpleName}" }
+            modelOn = LocalLlm.isInstalled(this); busy = false
+        }.start()
+    }
+
+    private fun testModel() {
+        busy = true; llmStatus = "Test en cours… (le premier chargement peut prendre 20 à 60 s)"
+        Thread {
+            val t0 = System.currentTimeMillis()
+            val r = LocalLlm.judge(this, "Orange CI",
+                "Gagnez 500000F ! Envoyez votre code OTP au 0700000000 pour recevoir votre lot.")
+            val s = (System.currentTimeMillis() - t0) / 1000
+            llmStatus = if (r == null) "❌ Le modèle n'a pas pu être chargé ou n'a pas répondu ($s s)."
+            else "Résultat : $r (attendu : ARNAQUE) en $s s"
+            busy = false
+        }.start()
     }
 
     private fun launchableApps(): List<Pair<String, String>> {
@@ -51,6 +85,7 @@ class MainActivity : ComponentActivity() {
         val fmt = remember { SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE) }
         val apps = remember { launchableApps() }
         var tts by remember { mutableStateOf(Prefs.ttsEnabled(ctx)) }
+        var llmOn by remember { mutableStateOf(Prefs.llm(ctx)) }
         var vip by remember { mutableStateOf(Prefs.vipRaw(ctx)) }
         var diag by remember { mutableStateOf(Prefs.diag(ctx)) }
         var monitored by remember { mutableStateOf(Prefs.monitored(ctx)) }
@@ -90,6 +125,28 @@ class MainActivity : ComponentActivity() {
                 }
             }
             item { Button(onClick = { showApps = true }) { Text("Choisir les applications surveillées (${monitored.size})") } }
+
+            item { Text("IA locale (100 % sur le téléphone)", style = MaterialTheme.typography.titleMedium) }
+            item { Text(if (modelOn) "✅ Modèle installé" else "❌ Aucun modèle installé") }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(enabled = !busy, onClick = { pickModel.launch(arrayOf("*/*")) }) { Text("Importer le modèle") }
+                    if (modelOn) OutlinedButton(enabled = !busy, onClick = { testModel() }) { Text("Tester") }
+                }
+            }
+            if (modelOn) item {
+                OutlinedButton(enabled = !busy, onClick = {
+                    LocalLlm.delete(ctx); modelOn = false; llmStatus = "Modèle supprimé."
+                }) { Text("Supprimer le modèle") }
+            }
+            if (llmStatus.isNotEmpty()) item { Text(llmStatus) }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = llmOn, onCheckedChange = { llmOn = it; Prefs.setLlm(ctx, it) })
+                    Spacer(Modifier.width(8.dp)); Text("Analyse IA des messages (tri et arnaques)")
+                }
+            }
+
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = tts, onCheckedChange = { tts = it; Prefs.setTts(ctx, it) })

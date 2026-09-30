@@ -17,4 +17,6 @@ object Prefs {
 
     fun diag(c: Context) = sp(c).getBoolean("diag", false)
     fun setDiag(c: Context, on: Boolean) = sp(c).edit().putBoolean("diag", on).apply()
-}
+} 
+    fun llm(c: Context) = sp(c).getBoolean("llm", true)
+    fun setLlm(c: Context, on: Boolean) = sp(c).edit().putBoolean("llm", on).apply()
